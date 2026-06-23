@@ -1518,6 +1518,62 @@ class LauncherApp:
 
     # ---- 服务器启动/停止 ----
 
+    def _check_vram_overload(self, model_path, params):
+        """
+        启动前检查显存是否足够
+        返回: "proceed"=继续, "autofit"=自动调整, "cancel"=取消
+        """
+        try:
+            # 获取模型文件大小（MB）
+            model_size = os.path.getsize(model_path) / (1024 * 1024)
+        except Exception:
+            return "proceed"
+
+        # 获取可用显存
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                return "proceed"  # 没有GPU或nvidia-smi不可用，跳过检查
+            free_vram = int(result.stdout.strip().splitlines()[0])
+        except Exception:
+            return "proceed"
+
+        # 估算所需显存：模型大小 * 1.2（KV缓存+开销）
+        estimated_vram = model_size * 1.2
+        gpu_layers = params.get("n_gpu_layers", "999")
+
+        # 如果GPU层数为0或空，表示用CPU，不需要检查
+        if not gpu_layers or str(gpu_layers).strip() in ("0", ""):
+            return "proceed"
+
+        # 如果估算显存小于可用显存，没问题
+        if estimated_vram < free_vram:
+            return "proceed"
+
+        # 显存不足，显示警告
+        msg = (
+            f"⚠ 显存可能不足！\n\n"
+            f"模型文件大小: {model_size:.0f} MB\n"
+            f"估算所需显存: {estimated_vram:.0f} MB（含 20% 开销）\n"
+            f"可用显存: {free_vram} MB\n"
+            f"超出: {estimated_vram - free_vram:.0f} MB\n\n"
+            f"GPU 层数设置: {gpu_layers}\n\n"
+            f"加载超过显存的模型可能导致系统停止响应。\n"
+            f"建议选择「自动调整」让 llama-server 自动分配 GPU 层数。"
+        )
+
+        choice = messagebox.askyesnocancel("显存警告", msg + "\n\n是否自动调整 GPU 层数？\n• 是=自动调整\n• 否=仍然加载（危险）\n• 取消=停止启动")
+        if choice is True:
+            return "autofit"
+        elif choice is False:
+            return "proceed"
+        else:
+            return "cancel"
+
     def _start_server(self):
         """启动 llama-server"""
         if not self.exe_var.get() or not os.path.exists(self.exe_var.get()):
@@ -1530,6 +1586,19 @@ class LauncherApp:
                 return
 
         params = self._collect_params()
+
+        # 显存过载保护
+        model_file = model_path.get().strip() if model_path else ""
+        if model_file and os.path.exists(model_file):
+            vram_check = self._check_vram_overload(model_file, params)
+            if vram_check == "cancel":
+                return
+            elif vram_check == "autofit":
+                # 清空 n-gpu-layers，让 llama-server 自动 fit
+                params["n_gpu_layers"] = ""
+                self.widgets["n_gpu_layers"].set("")
+                self._update_preview()
+
         extra = self.extra_text.get("1.0", tk.END).strip()
         cmd = CommandBuilder.build(self.exe_var.get(), params, PARAM_DEFINITIONS, extra)
 
