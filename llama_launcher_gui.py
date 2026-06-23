@@ -613,7 +613,7 @@ PARAM_DEFINITIONS = {
             "arg": "--spec-type", "label": "投机解码类型", "type": "combobox",
             "default": "none",
             "choices": ["none", "draft-simple", "draft-eagle3", "draft-mtp", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"],
-            "tooltip": "投机解码类型。MTP 模型选择 draft-mtp。\n• none: 禁用\n• draft-simple: 简单 draft 模型\n• draft-eagle3: EAGLE3\n• draft-mtp: 多 Token 预测（MTP），需 MTP 专用 GGUF\n• ngram-*: 基于 n-gram 的推测解码\n可逗号分隔组合多个，如 draft-mtp,ngram-mod"
+            "tooltip": "投机解码类型。三种加速方式：\n\n【1. 内置 MTP】Qwen3.6-MTP 等，MTP 头在 GGUF 内\n  选 draft-mtp，无需 Draft 模型路径\n  例：--spec-type draft-mtp --spec-draft-n-max 2\n\n【2. 独立 Draft 模型】用小模型（几百 MB）加速大模型\n  选 draft-simple，需设置 Draft 模型路径\n  例：Qwen3-32B + Qwen3-0.6B-Instruct 作 draft\n  注意：draft 必须与主模型同 tokenizer\n\n【3. Ngram】无需额外模型，基于历史 n-gram 预测\n  选 ngram-simple/ngram-mod/ngram-cache\n\n【4. EAGLE3】需独立 EAGLE3 draft 模型\n  选 draft-eagle3，需设置 Draft 模型路径\n\n可逗号分隔组合多个，如 draft-mtp,ngram-mod"
         },
         {
             "arg": "--spec-default", "label": "默认配置", "type": "checkbox",
@@ -643,7 +643,7 @@ PARAM_DEFINITIONS = {
         {
             "arg": "--spec-draft-model", "label": "Draft 模型路径", "type": "file",
             "default": "", "filetypes": [("GGUF 模型", "*.gguf"), ("所有文件", "*.*")],
-            "tooltip": "独立 draft 模型文件路径。MTP 模型不需要（权重已在主 GGUF 内）。仅 draft-simple/draft-eagle3 需要。"
+            "tooltip": "独立 draft 模型文件路径。\n\n使用场景：\n• draft-simple: 传统小 draft 模型（如 Qwen2.5-0.5B-Instruct，约 400MB）\n• draft-eagle3: EAGLE3 draft 模型\n• Gemma 4 MTP: 专用 MTP assistant 头 GGUF\n\n不适用场景：\n• Qwen3.6-MTP / DeepSeek-V3: MTP 头在主 GGUF 内，无需此项\n• ngram-*: 不需要 draft 模型\n\n注意：draft 模型必须与主模型使用相同 tokenizer。"
         },
         {
             "arg": "--spec-draft-ngl", "label": "Draft GPU 层数", "type": "entry",
@@ -674,6 +674,36 @@ PARAM_DEFINITIONS = {
             "arg": "--spec-draft-backend-sampling", "label": "Draft 后端采样", "type": "checkbox",
             "default": True, "no_arg": "--no-spec-draft-backend-sampling",
             "tooltip": "将 draft 采样卸载到后端。默认启用。"
+        },
+        {
+            "arg": "--spec-draft-hf", "label": "HF Draft 仓库", "type": "entry",
+            "default": "",
+            "tooltip": "从 HuggingFace 下载 draft 模型。格式：用户名/模型名[:量化]。\n例：ggml-org/Qwen3.6-27B-MTP-GGUF:Q4_K_M\n留空则使用上方 Draft 模型路径。"
+        },
+        {
+            "arg": "--spec-ngram-simple-size-n", "label": "Ngram-Simple N", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 100,
+            "tooltip": "ngram-simple 推测解码的 lookup 长度。0 = 默认。"
+        },
+        {
+            "arg": "--spec-ngram-simple-size-m", "label": "Ngram-Simple M", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 100,
+            "tooltip": "ngram-simple 推测解码的 draft 长度。0 = 默认。"
+        },
+        {
+            "arg": "--spec-ngram-mod-n-match", "label": "Ngram-Mod 匹配数", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 100,
+            "tooltip": "ngram-mod 推测解码的 lookup 长度。默认 24。0 = 默认。"
+        },
+        {
+            "arg": "--spec-ngram-mod-n-min", "label": "Ngram-Mod 最小", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 100,
+            "tooltip": "ngram-mod 推测解码最小 token 数。0 = 默认。"
+        },
+        {
+            "arg": "--spec-ngram-mod-n-max", "label": "Ngram-Mod 最大", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 100,
+            "tooltip": "ngram-mod 推测解码最大 token 数。0 = 默认。"
         },
     ],
 }
