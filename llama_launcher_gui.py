@@ -607,6 +607,75 @@ PARAM_DEFINITIONS = {
             "tooltip": "完全禁用日志输出。"
         },
     ],
+
+    "投机解码MTP": [
+        {
+            "arg": "--spec-type", "label": "投机解码类型", "type": "combobox",
+            "default": "none",
+            "choices": ["none", "draft-simple", "draft-eagle3", "draft-mtp", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"],
+            "tooltip": "投机解码类型。MTP 模型选择 draft-mtp。\n• none: 禁用\n• draft-simple: 简单 draft 模型\n• draft-eagle3: EAGLE3\n• draft-mtp: 多 Token 预测（MTP），需 MTP 专用 GGUF\n• ngram-*: 基于 n-gram 的推测解码\n可逗号分隔组合多个，如 draft-mtp,ngram-mod"
+        },
+        {
+            "arg": "--spec-default", "label": "默认配置", "type": "checkbox",
+            "default": False,
+            "tooltip": "启用默认投机解码配置，自动设置推荐参数。"
+        },
+        {
+            "arg": "--spec-draft-n-max", "label": "MTP 预测数", "type": "spinbox",
+            "default": 3, "min_val": 1, "max_val": 10,
+            "tooltip": "每次最多预测的 token 数（MTP 核心参数）。\n• 2: 稳定，82% 接受率\n• 3: 更高吞吐，72% 接受率\n推荐 MTP 模型设为 2 或 3。"
+        },
+        {
+            "arg": "--spec-draft-n-min", "label": "最小草稿数", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 10,
+            "tooltip": "投机解码最小草稿 token 数。0 = 自动。"
+        },
+        {
+            "arg": "--spec-draft-p-min", "label": "最小概率阈值", "type": "entry",
+            "default": "0.00",
+            "tooltip": "投机解码最小概率阈值（greedy 模式）。0.00 = 禁用。MTP 模型建议设为 0.75 可显著改善效果。"
+        },
+        {
+            "arg": "--spec-draft-p-split", "label": "Split 概率", "type": "entry",
+            "default": "0.10",
+            "tooltip": "投机解码分割概率。0.10 = 10% 概率使用 split 验证。"
+        },
+        {
+            "arg": "--spec-draft-model", "label": "Draft 模型路径", "type": "file",
+            "default": "", "filetypes": [("GGUF 模型", "*.gguf"), ("所有文件", "*.*")],
+            "tooltip": "独立 draft 模型文件路径。MTP 模型不需要（权重已在主 GGUF 内）。仅 draft-simple/draft-eagle3 需要。"
+        },
+        {
+            "arg": "--spec-draft-ngl", "label": "Draft GPU 层数", "type": "entry",
+            "default": "auto",
+            "tooltip": "draft 模型卸载到 GPU 的层数。auto = 自动。MTP 的 draft 头通常很少层，auto 即可。"
+        },
+        {
+            "arg": "--spec-draft-device", "label": "Draft 设备", "type": "entry",
+            "default": "",
+            "tooltip": "draft 模型使用的设备。留空 = 与主模型相同。例：CUDA0。"
+        },
+        {
+            "arg": "--spec-draft-threads", "label": "Draft 线程数", "type": "spinbox",
+            "default": -1, "min_val": -1, "max_val": 256,
+            "tooltip": "draft 模型生成线程数。-1 = 与主模型相同。"
+        },
+        {
+            "arg": "--spec-draft-type-k", "label": "Draft K 缓存类型", "type": "combobox",
+            "default": "f16", "choices": ["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"],
+            "tooltip": "draft 模型 K 缓存数据类型。f16 为默认。"
+        },
+        {
+            "arg": "--spec-draft-type-v", "label": "Draft V 缓存类型", "type": "combobox",
+            "default": "f16", "choices": ["f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"],
+            "tooltip": "draft 模型 V 缓存数据类型。f16 为默认。"
+        },
+        {
+            "arg": "--spec-draft-backend-sampling", "label": "Draft 后端采样", "type": "checkbox",
+            "default": True, "no_arg": "--no-spec-draft-backend-sampling",
+            "tooltip": "将 draft 采样卸载到后端。默认启用。"
+        },
+    ],
 }
 
 
