@@ -284,6 +284,11 @@ PARAM_DEFINITIONS = {
             "tooltip": "将所有 MoE（混合专家）权重保留在 CPU，仅 attention 等加载到 GPU。可节省显存。"
         },
         {
+            "arg": "--n-cpu-moe", "label": "MoE CPU 层数", "type": "spinbox",
+            "default": 0, "min_val": 0, "max_val": 999,
+            "tooltip": "指定 MoE 层卸载到 CPU 的数量。0 = 全部 GPU（配合 --cpu-moe 使用时此参数被忽略）。用于显存不足时部分 MoE 层放 CPU。"
+        },
+        {
             "arg": "--op-offload", "label": "操作 offload", "type": "checkbox",
             "default": True, "no_arg": "--no-op-offload",
             "tooltip": "是否将 host 张量操作 offload 到设备。默认启用。"
@@ -395,9 +400,9 @@ PARAM_DEFINITIONS = {
             "tooltip": "V 缓存数据类型。同 K 缓存。量化类型可节省显存但可能影响质量。"
         },
         {
-            "arg": "--defrag-thold", "label": "碎片整理阈值", "type": "entry",
-            "default": "0.1",
-            "tooltip": "KV 缓存碎片整理阈值。碎片超过此比例时触发整理。<0 = 禁用。已弃用，建议使用 --cache-reuse 代替。"
+            "arg": "--defrag-thold", "label": "碎片整理阈值(已弃用)", "type": "entry",
+            "default": "",
+            "tooltip": "KV 缓存碎片整理阈值。碎片超过此比例时触发整理。<0 = 禁用。\n⚠ 已弃用，建议留空不使用。llama.cpp 新版已自动处理碎片整理。"
         },
     ],
 
@@ -811,6 +816,10 @@ class CommandBuilder:
             for p in tab_params:
                 defs_by_arg[p["arg"]] = p
 
+        # 检查投机解码是否启用
+        spec_type_val = params.get("spec_type", "none")
+        spec_enabled = spec_type_val and spec_type_val != "none"
+
         for arg, definition in defs_by_arg.items():
             # 跳过 GUI 专用参数
             if definition.get("gui_only"):
@@ -822,6 +831,10 @@ class CommandBuilder:
             ptype = definition["type"]
             default = definition.get("default")
 
+            # 投机解码未启用时，跳过所有 spec-* 参数
+            if arg.startswith("--spec-") and not spec_enabled:
+                continue
+
             if ptype == "checkbox":
                 if value:  # True
                     parts.append(arg)
@@ -832,6 +845,20 @@ class CommandBuilder:
                 if value is None or str(value).strip() == "":
                     continue
                 val_str = str(value).strip()
+                # 跳过无效默认值
+                if arg == "--spec-type" and val_str == "none":
+                    continue
+                if arg == "--spec-draft-ngl" and val_str == "auto":
+                    continue
+                if arg == "--spec-draft-threads" and val_str == "-1":
+                    continue
+                # spinbox 默认值为 0 时跳过
+                if ptype == "spinbox" and isinstance(default, (int, float)) and default == 0:
+                    try:
+                        if float(val_str) == 0:
+                            continue
+                    except ValueError:
+                        pass
                 if arg in CommandBuilder.PATH_ARGS or (" " in val_str or "\\" in val_str):
                     parts.append(f'{arg} "{val_str}"')
                 else:
